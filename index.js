@@ -26,7 +26,7 @@ exports.registerInstance = (req, res) => {
 
     // Set node
     var node = req.body.node
-    if (node != null && node.length > 0) {
+    if (node != null) {
         var nodeRef = db.collection(nodesPath).doc(node.Id)
         batch.set(nodeRef, node)
     }
