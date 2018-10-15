@@ -87,7 +87,8 @@ exports.registerApp = (req, res) => {
             var app = {}
             app.name = appName
             app.id = uuidv4()
-            var now = new Date()
+
+            var now = new Date().getTime();
             app.createdAt = now
             app.updatedAt = now
 
