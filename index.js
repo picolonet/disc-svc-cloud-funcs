@@ -15,7 +15,7 @@ exports.helloGET = (req, res) => {
 };
 
 exports.registerNode = (req, res) => {
-    var doc = db.collection(nodesPath).doc(req.body.id).set(req.body)
+    var doc = db.collection(nodesPath).doc(req.body.Id).set(req.body)
     doc.then(result => {
         console.log('Registered node')
         res.end()
@@ -29,18 +29,18 @@ exports.registerInstance = (req, res) => {
     // Set node
     var node = req.body.node
     if (node != null) {
-        var nodeRef = db.collection(nodesPath).doc(node.id)
+        var nodeRef = db.collection(nodesPath).doc(node.Id)
         batch.set(nodeRef, node)
     }
 
     // Set shard
     var shard = req.body.shard
-    var shardRef = db.collection(shardsPath).doc(shard.id)
+    var shardRef = db.collection(shardsPath).doc(shard.Id)
     batch.set(shardRef, shard)
 
     // Set instance
     var instance = req.body.instance
-    var instanceRef = db.collection(instsPath).doc(instance.id)
+    var instanceRef = db.collection(instsPath).doc(instance.Id)
     batch.set(instanceRef, instance)
 
     // Commit the batch
@@ -52,7 +52,7 @@ exports.registerInstance = (req, res) => {
 
 // todo change to get under replicated or heavily loaded shards
 exports.getShardToJoin = (req, res) => {
-    var shard = db.collection(shardsPath).orderBy('updatedAt', 'asc').limit(1)
+    var shard = db.collection(shardsPath).orderBy('UpdatedAt', 'asc').limit(1)
     shard.get().then((snapshot) => {
         // Get the last document
         if (snapshot.docs.length >= 1) {
@@ -93,7 +93,7 @@ exports.registerApp = (req, res) => {
             app.updatedAt = now
 
             // assign a shard to the app
-            var shardQuery = db.collection(shardsPath).orderBy('updatedAt', 'asc').limit(1)
+            var shardQuery = db.collection(shardsPath).orderBy('UpdatedAt', 'asc').limit(1)
             var shardJoinInfo = null
             shardQuery.get().then((snapshot) => {
                 // Get the last document
@@ -102,17 +102,17 @@ exports.registerApp = (req, res) => {
                     // Get a new write batch
                     var batch = db.batch()
                     // Add app to shard
-                    var shardRef = db.collection(shardsPath).doc(last.data().id)
-                    batch.update(shardRef, { apps: admin.firestore.FieldValue.arrayUnion(appName), updatedAt: now })
+                    var shardRef = db.collection(shardsPath).doc(last.data().Id)
+                    batch.update(shardRef, { apps: admin.firestore.FieldValue.arrayUnion(appName), UpdatedAt: now })
 
                     // add shard info to the app
-                    app.shardId = last.data().id
+                    app.shardId = last.data().Id
                     batch.set(appRef, app)
 
                     // Commit the batch
                     batch.commit().then(function(result) {
                         console.log('Registered app ', appName)
-                        shardJoinInfo = last.data().joinInfo
+                        shardJoinInfo = last.data().JoinInfo
                         res.send(shardJoinInfo)
                     });
 
