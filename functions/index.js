@@ -10,10 +10,6 @@ const appsPath = "apps"
 admin.initializeApp(functions.config().firebase)
 const db = admin.firestore()
 
-exports.helloGET = (req, res) => {
-    res.send('Hello World!')
-};
-
 exports.registerNode = (req, res) => {
     var doc = db.collection(nodesPath).doc(req.body.Id).set(req.body)
     doc.then(result => {
@@ -73,6 +69,23 @@ exports.throwFlare = (req, res) => {
     })
 }
 
+exports.getApp = (req, res) => {
+    var appName = req.path
+    console.log(req.path + " org: " + req.originalUrl)
+    var appRef = db.collection(appsPath).doc(appName)
+    appRef.get().then((doc) => {
+        if (doc.exists) {
+            if (doc.data().shardJoinInfo.length >= 1) {
+                // randomly pick one ip
+                res.send(doc.data().shardJoinInfo[0])
+            }
+
+        } else {
+            res.end("No app found")
+        }
+    })
+}
+
 exports.registerApp = (req, res) => {
     // req.body contains just '{name : appname}'
     var appName = req.body.name
@@ -107,6 +120,7 @@ exports.registerApp = (req, res) => {
 
                     // add shard info to the app
                     app.shardId = last.data().Id
+                    app.shardJoinInfo = last.data().JoinInfo
                     batch.set(appRef, app)
 
                     // Commit the batch
