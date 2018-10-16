@@ -10,69 +10,90 @@ const appsPath = "apps"
 admin.initializeApp(functions.config().firebase)
 const db = admin.firestore()
 
-exports.registerNode = (req, res) => {
-    var doc = db.collection(nodesPath).doc(req.body.Id).set(req.body)
+exports.registerNode = functions.https.onRequest((req, res) => {
+    let doc = db.collection(nodesPath).doc(req.body.Id).set(req.body)
     doc.then(result => {
         console.log('Registered node')
         res.end()
     })
-}
+})
 
-exports.registerInstance = (req, res) => {
+exports.registerInstance = functions.https.onRequest((req, res) => {
     // Get a new write batch
-    var batch = db.batch()
+    let batch = db.batch()
 
     // Set node
-    var node = req.body.node
+    let node = req.body.node
     if (node != null) {
-        var nodeRef = db.collection(nodesPath).doc(node.Id)
+        let nodeRef = db.collection(nodesPath).doc(node.Id)
         batch.set(nodeRef, node)
     }
 
     // Set shard
-    var shard = req.body.shard
-    var shardRef = db.collection(shardsPath).doc(shard.Id)
+    let shard = req.body.shard
+    let shardRef = db.collection(shardsPath).doc(shard.Id)
     batch.set(shardRef, shard)
 
     // Set instance
-    var instance = req.body.instance
-    var instanceRef = db.collection(instsPath).doc(instance.Id)
+    let instance = req.body.instance
+    let instanceRef = db.collection(instsPath).doc(instance.Id)
     batch.set(instanceRef, instance)
 
     // Commit the batch
     batch.commit().then(function(result) {
         console.log('Registered instance')
         res.end()
-    });
-}
+    })
+})
+
+exports.countAppAndCrdbInstsInShard = functions.firestore.document(shardsPath + '/{shardId}').onUpdate((change, context) => {
+    // Retrieve the current and previous value
+    const data = change.after.data()
+    const previousData = change.before.data()
+
+    // We'll only update if the lengths have changed.
+    // This is crucial to prevent infinite loops.
+    let previousAppsLength = 0
+    if (previousData.Apps != null) {
+        previousAppsLength = previousData.Apps.length
+    }
+    if (data.CrdbInsts.length != previousData.CrdbInsts.length || data.Apps.length != previousAppsLength) {
+        // Then return a promise of a set operation to update the count
+        change.after.ref.set({
+            CrdbInstCount: data.CrdbInsts.length,
+            AppsCount: data.Apps.length
+        }, { merge: true })
+    }
+})
+
 
 // todo change to get under replicated or heavily loaded shards
-exports.getShardToJoin = (req, res) => {
-    var shard = db.collection(shardsPath).orderBy('UpdatedAt', 'asc').limit(1)
+exports.getShardToJoin = functions.https.onRequest((req, res) => {
+    let shard = db.collection(shardsPath).orderBy('CrdbInstCount', 'asc').limit(1)
     shard.get().then((snapshot) => {
         // Get the last document
         if (snapshot.docs.length >= 1) {
-            var last = snapshot.docs[snapshot.docs.length - 1]
+            let last = snapshot.docs[snapshot.docs.length - 1]
             res.send(last.data())
         } else {
             console.log("No shards found")
             res.end()
         }
     })
-}
+})
 
-exports.throwFlare = (req, res) => {
-    var doc = db.collection(flaresPath).add(req.body)
+exports.throwFlare = functions.https.onRequest((req, res) => {
+    let doc = db.collection(flaresPath).add(req.body)
     doc.then(result => {
         console.log('Threw a flare')
         res.end()
     })
-}
+})
 
-exports.getApp = (req, res) => {
-    var appName = req.path
+exports.getApp = functions.https.onRequest((req, res) => {
+    let appName = req.path
     console.log(req.path + " org: " + req.originalUrl)
-    var appRef = db.collection(appsPath).doc(appName)
+    let appRef = db.collection(appsPath).doc(appName)
     appRef.get().then((doc) => {
         if (doc.exists) {
             if (doc.data().shardJoinInfo.length >= 1) {
@@ -84,43 +105,43 @@ exports.getApp = (req, res) => {
             res.end("No app found")
         }
     })
-}
+})
 
-exports.registerApp = (req, res) => {
+exports.createApp = functions.https.onRequest((req, res) => {
     // req.body contains just '{name : appname}'
-    var appName = req.body.name
+    let appName = req.body.name
 
     // check if app already exists with the given name
-    var appRef = db.collection(appsPath).doc(appName)
+    let appRef = db.collection(appsPath).doc(appName)
     appRef.get().then((doc) => {
         if (doc.exists) {
             res.send("AppExists: " + appName + " already exists")
         } else {
             // construct app object
-            var app = {}
-            app.name = appName
-            app.id = uuidv4()
+            let app = {}
+            app.Name = appName
+            app.Id = uuidv4()
 
-            var now = new Date().getTime();
-            app.createdAt = now
-            app.updatedAt = now
+            let now = new Date().getTime();
+            app.CreatedAt = now
+            app.UpdatedAt = now
 
             // assign a shard to the app
-            var shardQuery = db.collection(shardsPath).orderBy('UpdatedAt', 'asc').limit(1)
-            var shardJoinInfo = null
+            let shardQuery = db.collection(shardsPath).orderBy('AppsCount', 'asc').limit(1)
+            let shardJoinInfo = null
             shardQuery.get().then((snapshot) => {
                 // Get the last document
                 if (snapshot.docs.length >= 1) {
-                    var last = snapshot.docs[snapshot.docs.length - 1]
+                    let last = snapshot.docs[snapshot.docs.length - 1]
                     // Get a new write batch
-                    var batch = db.batch()
+                    let batch = db.batch()
                     // Add app to shard
-                    var shardRef = db.collection(shardsPath).doc(last.data().Id)
-                    batch.update(shardRef, { apps: admin.firestore.FieldValue.arrayUnion(appName), UpdatedAt: now })
+                    let shardRef = db.collection(shardsPath).doc(last.data().Id)
+                    batch.update(shardRef, { Apps: admin.firestore.FieldValue.arrayUnion(appName), UpdatedAt: now })
 
                     // add shard info to the app
-                    app.shardId = last.data().Id
-                    app.shardJoinInfo = last.data().JoinInfo
+                    app.ShardId = last.data().Id
+                    app.ShardJoinInfo = last.data().JoinInfo
                     batch.set(appRef, app)
 
                     // Commit the batch
@@ -128,7 +149,7 @@ exports.registerApp = (req, res) => {
                         console.log('Registered app ', appName)
                         shardJoinInfo = last.data().JoinInfo
                         res.send(shardJoinInfo)
-                    });
+                    })
 
                 } else {
                     console.log("No shards found to assign to app ", appName)
@@ -137,4 +158,4 @@ exports.registerApp = (req, res) => {
             })
         }
     })
-}
+})
