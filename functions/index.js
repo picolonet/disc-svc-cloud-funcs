@@ -1,6 +1,7 @@
 const admin = require('firebase-admin')
 const functions = require('firebase-functions')
-const uuidv4 = require('uuid/v4');
+const random = require('lodash')
+const uuidv4 = require('uuid/v4')
 const nodesPath = "nodes"
 const instsPath = "instances"
 const shardsPath = "shards"
@@ -9,6 +10,8 @@ const appsPath = "apps"
 
 admin.initializeApp(functions.config().firebase)
 const db = admin.firestore()
+const settings = {timestampsInSnapshots: true};
+db.settings(settings);
 
 exports.registerNode = functions.https.onRequest((req, res) => {
     let doc = db.collection(nodesPath).doc(req.body.Id).set(req.body)
@@ -91,16 +94,18 @@ exports.throwFlare = functions.https.onRequest((req, res) => {
 })
 
 exports.getApp = functions.https.onRequest((req, res) => {
-    let appName = req.path
-    console.log(req.path + " org: " + req.originalUrl)
+    let appName = req.path // expected to be in the form /app
+    appName = appName.trim().replace(/^\/|\/$/g, '')
+    console.log('Path: ' + req.path + ' app name: ' + appName)
     let appRef = db.collection(appsPath).doc(appName)
     appRef.get().then((doc) => {
         if (doc.exists) {
-            if (doc.data().shardJoinInfo.length >= 1) {
+            if (doc.data().ShardJoinInfo.length >= 1) {
                 // randomly pick one ip
-                res.send(doc.data().shardJoinInfo[0])
+                let randIdx = random.random(0, doc.data().ShardJoinInfo.length - 1)
+                let connString = 'postgresql://root@' + doc.data().ShardJoinInfo[randIdx] + '/defaultdb'
+                res.send(connString)
             }
-
         } else {
             res.end("No app found")
         }

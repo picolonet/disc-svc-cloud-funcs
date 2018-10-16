@@ -7,10 +7,11 @@
       "**/node_modules/**"
     ],
     "cleanUrls": true,
-    // Add the following rewrites section *within* "hosting"
     "rewrites": [ {
-      "source": "/create", "function": "createApp",
-      "source": "/:app", "function": "getApp"
+      "source": "/create", "function": "createApp"
+    },
+    {
+      "source": "**", "function": "getApp"
     } ]
   }
 }
