@@ -60,11 +60,15 @@ exports.countAppAndCrdbInstsInShard = functions.firestore.document(shardsPath + 
     if (previousData.Apps != null) {
         previousAppsLength = previousData.Apps.length
     }
-    if (data.CrdbInsts.length != previousData.CrdbInsts.length || data.Apps.length != previousAppsLength) {
+    let currAppsLength = 0
+    if (data.Apps != null) {
+        currAppsLength = data.Apps.length
+    }
+    if (data.CrdbInsts.length != previousData.CrdbInsts.length || currAppsLength != previousAppsLength) {
         // Then return a promise of a set operation to update the count
         change.after.ref.set({
             CrdbInstCount: data.CrdbInsts.length,
-            AppsCount: data.Apps.length
+            AppsCount: currAppsLength
         }, { merge: true })
     }
 })
